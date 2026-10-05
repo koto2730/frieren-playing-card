@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 250 350" width="250" height="350">
+  <title>diamond 5</title>
+  <defs><symbol id="suit-diamond" viewBox="0 0 100 100"><path fill="#D40000" d="M50 5 Q66 30 85 50 Q66 70 50 95 Q34 70 15 50 Q34 30 50 5 Z"/></symbol></defs>
+  <rect x="1" y="1" width="248" height="348" rx="14" fill="#FFFFFF" stroke="#333333" stroke-width="2"/>
+  <g><text x="26" y="42" text-anchor="middle" font-size="30" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" fill="#D40000">5</text><use xlink:href="#suit-diamond" x="16" y="50" width="20" height="20"/></g>
+  <g transform="rotate(180 125 175)"><text x="26" y="42" text-anchor="middle" font-size="30" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" fill="#D40000">5</text><use xlink:href="#suit-diamond" x="16" y="50" width="20" height="20"/></g>
+  <use xlink:href="#suit-diamond" x="59" y="52" width="46" height="46"/>
+  <use xlink:href="#suit-diamond" x="145" y="52" width="46" height="46"/>
+  <use xlink:href="#suit-diamond" x="102" y="152" width="46" height="46"/>
+  <use xlink:href="#suit-diamond" x="59" y="252" width="46" height="46" transform="rotate(180 82 275)"/>
+  <use xlink:href="#suit-diamond" x="145" y="252" width="46" height="46" transform="rotate(180 168 275)"/>
+</svg>

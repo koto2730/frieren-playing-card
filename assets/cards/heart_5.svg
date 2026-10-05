@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 250 350" width="250" height="350">
+  <title>heart 5</title>
+  <defs><symbol id="suit-heart" viewBox="0 0 100 100"><path fill="#D40000" d="M50 90 C20 64 8 48 8 32 C8 19 18 10 30 10 C39 10 46 15 50 23 C54 15 61 10 70 10 C82 10 92 19 92 32 C92 48 80 64 50 90 Z"/></symbol></defs>
+  <rect x="1" y="1" width="248" height="348" rx="14" fill="#FFFFFF" stroke="#333333" stroke-width="2"/>
+  <g><text x="26" y="42" text-anchor="middle" font-size="30" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" fill="#D40000">5</text><use xlink:href="#suit-heart" x="16" y="50" width="20" height="20"/></g>
+  <g transform="rotate(180 125 175)"><text x="26" y="42" text-anchor="middle" font-size="30" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" fill="#D40000">5</text><use xlink:href="#suit-heart" x="16" y="50" width="20" height="20"/></g>
+  <use xlink:href="#suit-heart" x="59" y="52" width="46" height="46"/>
+  <use xlink:href="#suit-heart" x="145" y="52" width="46" height="46"/>
+  <use xlink:href="#suit-heart" x="102" y="152" width="46" height="46"/>
+  <use xlink:href="#suit-heart" x="59" y="252" width="46" height="46" transform="rotate(180 82 275)"/>
+  <use xlink:href="#suit-heart" x="145" y="252" width="46" height="46" transform="rotate(180 168 275)"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 250 350" width="250" height="350">
+  <title>back blue</title>
+  <defs>
+    <pattern id="lattice-blue" x="5" y="15" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M0 0 L20 20 M20 0 L0 20" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.55"/>
+      <circle cx="10" cy="10" r="2.2" fill="#FFFFFF"/>
+      <path d="M10 -3 L13 0 L10 3 L7 0 Z M10 17 L13 20 L10 23 L7 20 Z M-3 10 L0 7 L3 10 L0 13 Z M17 10 L20 7 L23 10 L20 13 Z" fill="#FFFFFF" fill-opacity="0.35"/>
+    </pattern>
+  </defs>
+  <rect x="1" y="1" width="248" height="348" rx="14" fill="#FFFFFF" stroke="#333333" stroke-width="2"/>
+  <rect x="14" y="14" width="222" height="322" rx="8" fill="#1F3A8A"/>
+  <rect x="14" y="14" width="222" height="322" rx="8" fill="url(#lattice-blue)"/>
+  <rect x="20" y="20" width="210" height="310" rx="5" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+  <rect x="25" y="25" width="200" height="300" rx="3" fill="none" stroke="#FFFFFF" stroke-width="0.8"/>
+  <path d="M125 103 L177 175 L125 247 L73 175 Z" fill="#1F3A8A" stroke="#FFFFFF" stroke-width="2.5"/>
+  <path d="M125 115 L167 175 L125 235 L83 175 Z" fill="none" stroke="#FFFFFF" stroke-width="0.8"/>
+  <path d="M125 141 L147 175 L125 209 L103 175 Z" fill="#FFFFFF"/>
+  <path d="M125 159 L135 175 L125 191 L115 175 Z" fill="#1F3A8A"/>
+</svg>
