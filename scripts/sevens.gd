@@ -27,6 +27,7 @@ var input_enabled := false
 
 var board_layer: Control
 var hand_layer: Control
+var hand_positions := {}  # Card -> 手札での位置（出すときの飛び立つ場所）
 var info_labels: Array[Label] = []
 var pass_button: Button
 
@@ -62,7 +63,6 @@ func _ready() -> void:
 		pass_button = UI.button(self, "パス", Vector2(960, 440), Vector2(260, 56), 26, _on_pass)
 		UI.label(self, "あなたの手札", Vector2(40, 540), Vector2(300, 36), 20, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_deal()
 	_run()
 
 
@@ -86,22 +86,46 @@ func _cell_position(suit: int, rank: int) -> Vector2:
 	return board_origin + Vector2((rank - 1) * board_cell.x, suit * board_cell.y)
 
 
+func _board_center() -> Vector2:
+	return (_cell_position(0, 1) + _cell_position(3, 13) + board_card) / 2.0
+
+
 func _deal() -> void:
 	var deck := Card.make_deck()
 	for i in deck.size():
 		hands[i % 4].append(deck[i])
+	for p in 4:
+		hands[p].sort_custom(func(a: Card, b: Card) -> bool: return a.suit * 100 + a.rank < b.suit * 100 + b.rank)
+
+	# 山札から1枚ずつ順番に配る
+	set_message("カードを配ります")
+	_refresh_info()
+	show_deck(_board_center(), hand_card)
+	var positions := UI.row_positions(hands[0].size(), hand_per_row, hand_card, hand_y)
+	var items: Array = []
+	for i in hands[0].size():
+		for p in 4:
+			if p == 0:
+				items.append({"card": hands[0][i], "to": positions[i], "size": hand_card, "face_up": true})
+			else:
+				items.append({"card": hands[p][i], "to": _seat_position(p), "size": _seat_card_size(), "keep": false})
+	await deal_cards(items, 0.035)
+	hide_deck()
+	_refresh()
+	await wait(0.4)
+
 	# 7は最初に全部場に出す。ダイヤの7を持っていた人から始める。
+	set_message("7を場に出します")
 	for p in 4:
 		for card: Card in hands[p].duplicate():
 			if card.rank == 7:
 				if card.suit == 2:
 					current = p
-				hands[p].erase(card)
-				_place(card)
-		hands[p].sort_custom(func(a: Card, b: Card) -> bool: return a.suit * 100 + a.rank < b.suit * 100 + b.rank)
+				await _move_to_board(p, card, 0.22)
 
 
 func _run() -> void:
+	await _deal()
 	set_message("%s から始めます" % NAMES[current])
 	_refresh()
 	await wait(1.0)
@@ -121,7 +145,7 @@ func _human_turn() -> void:
 	if playable.is_empty() and passes[0] >= MAX_PASS:
 		set_message("出せるカードがなく、パスも使い切りました…")
 		await wait(1.6)
-		_eliminate(0)
+		await _eliminate(0)
 		return
 	if playable.is_empty():
 		set_message("出せるカードがありません。パスしてください")
@@ -140,14 +164,14 @@ func _cpu_turn(p: int) -> void:
 	if playable.is_empty():
 		if passes[p] >= MAX_PASS:
 			set_message("%s は出せず脱落…" % NAMES[p])
-			_eliminate(p)
+			await _eliminate(p)
 		else:
 			passes[p] += 1
 			set_message("%s はパス" % NAMES[p])
 		return
 	var card := _cpu_choose(p, playable)
-	_play(p, card)
 	set_message("%s が %s を出した" % [NAMES[p], card.label()])
+	await _play(p, card)
 
 
 ## 自分がその先のカードを多く持っている列を優先して開ける。
@@ -192,9 +216,30 @@ func _place(card: Card) -> void:
 	view.z_index = card.rank  # たて画面では数字の大きいカードが手前に重なる
 
 
-func _play(p: int, card: Card) -> void:
+## CPUの席（名前の表示の右はし）。CPUのカードはここから出てくる。
+func _seat_position(p: int) -> Vector2:
+	return info_labels[p].position + Vector2(info_labels[p].size.x - 36, 0)
+
+
+func _seat_card_size() -> Vector2:
+	return hand_card * 0.45
+
+
+## 手札（CPUは席）から場の決まった場所へカードを飛ばして置く。
+func _move_to_board(p: int, card: Card, duration: float) -> void:
+	var from: Vector2 = hand_positions.get(card, _seat_position(p)) if p == 0 else _seat_position(p)
+	var from_size := hand_card if p == 0 else _seat_card_size()
 	hands[p].erase(card)
+	if p == 0:
+		_refresh()
+	else:
+		_refresh_info()
+	await fly_card(card, from, _cell_position(card.suit, card.rank), from_size, board_card, true, duration)
 	_place(card)
+
+
+func _play(p: int, card: Card) -> void:
+	await _move_to_board(p, card, 0.28 if state[0] == PLAYING else 0.12)
 	if hands[p].is_empty():
 		state[p] = FINISHED
 		finished_order.append(p)
@@ -202,9 +247,8 @@ func _play(p: int, card: Card) -> void:
 
 ## 脱落した人の手札はすべて場に置かれる。
 func _eliminate(p: int) -> void:
-	for card: Card in hands[p]:
-		_place(card)
-	hands[p].clear()
+	for card: Card in hands[p].duplicate():
+		await _move_to_board(p, card, 0.1)
 	state[p] = ELIMINATED
 	eliminated_order.append(p)
 
@@ -216,8 +260,9 @@ func _playing_count() -> int:
 func _on_card_pressed(card: Card) -> void:
 	if not input_enabled or not _can_place(card):
 		return
-	_play(0, card)
+	input_enabled = false
 	set_message("あなたが %s を出した" % card.label())
+	await _play(0, card)
 	human_acted.emit()
 
 
@@ -231,6 +276,7 @@ func _on_pass() -> void:
 
 func _refresh() -> void:
 	UI.clear_children(hand_layer)
+	hand_positions.clear()
 	var hand: Array = hands[0]
 	var positions := UI.row_positions(hand.size(), hand_per_row, hand_card, hand_y)
 	for i in hand.size():
@@ -239,11 +285,15 @@ func _refresh() -> void:
 		hand_layer.add_child(view)
 		view.setup(card, hand_card)
 		view.position = positions[i]
+		hand_positions[card] = positions[i]
 		var can_play := input_enabled and _can_place(card)
 		view.set_clickable(can_play)
 		view.set_dimmed(input_enabled and not can_play)
 		view.pressed.connect(_on_card_pressed.bind(card))
+	_refresh_info()
 
+
+func _refresh_info() -> void:
 	for p in 4:
 		var text := ""
 		match state[p]:
@@ -277,4 +327,4 @@ func _finish() -> void:
 		var p := order[i]
 		lines.append("%d位  %s%s" % [i + 1, NAMES[p], "（脱落）" if state[p] == ELIMINATED else ""])
 	var my_rank := order.find(0) + 1
-	show_result("あなたは %d位！" % my_rank, lines)
+	show_result("あなたは %d位！" % my_rank, lines, my_rank == 1)

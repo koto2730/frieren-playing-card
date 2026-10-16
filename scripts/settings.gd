@@ -11,6 +11,15 @@ const MEMORY_CPU_LEVELS := [
 
 static var memory_cpu_level := 1
 
+## ポーカーに入れるジョーカーの枚数。ジョーカーはどのカードの代わりにもなる。
+const POKER_JOKER_OPTIONS := [
+	{"name": "なし", "count": 0},
+	{"name": "1枚", "count": 1},
+	{"name": "2枚", "count": 2},
+]
+
+static var poker_joker_option := 0
+
 ## たて画面(720x1280)で遊ぶかどうか。起動引数 `-- --portrait` でも指定できる。
 static var portrait := "--portrait" in OS.get_cmdline_user_args()
 static var orientation_chosen := "--portrait" in OS.get_cmdline_user_args()

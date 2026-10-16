@@ -73,7 +73,7 @@ func _draw() -> void:
 func _draw_index(s: float) -> void:
 	if card.is_joker():
 		for i in 5:
-			_draw_centered("JOKER"[i], Vector2(26, 36 + i * 19) * s, roundi(18 * s), BLACK)
+			_draw_centered("JOKER"[i], Vector2(26, 36 + i * 19) * s, roundi(18 * s), RED if card.rank == 1 else BLACK)
 		return
 	var text: String = Card.RANK_NAMES[card.rank - 1]
 	var color := RED if card.suit == 1 or card.suit == 2 else BLACK

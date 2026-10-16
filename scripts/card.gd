@@ -8,7 +8,7 @@ const RANK_NAMES := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q"
 const JOKER_SUIT := -1
 
 var suit: int
-var rank: int  # 1〜13、ジョーカーは0
+var rank: int  # 1〜13。ジョーカーは 0=黒 / 1=赤
 
 
 func _init(s: int, r: int) -> void:
@@ -22,7 +22,7 @@ func is_joker() -> bool:
 
 func texture_path() -> String:
 	if is_joker():
-		return "res://assets/cards/joker_black.svg"
+		return "res://assets/cards/joker_red.svg" if rank == 1 else "res://assets/cards/joker_black.svg"
 	return "res://assets/cards/%s_%s.svg" % [SUIT_NAMES[suit], RANK_NAMES[rank - 1]]
 
 
@@ -45,6 +45,6 @@ static func make_deck(jokers: int = 0) -> Array[Card]:
 		for r in range(1, 14):
 			deck.append(Card.new(s, r))
 	for i in jokers:
-		deck.append(Card.new(JOKER_SUIT, 0))
+		deck.append(Card.new(JOKER_SUIT, i % 2))
 	deck.shuffle()
 	return deck

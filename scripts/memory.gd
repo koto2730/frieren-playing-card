@@ -50,13 +50,31 @@ func _ready() -> void:
 		@warning_ignore("integer_division")
 		view.position = origin + Vector2((i % columns) * cell.x, (i / columns) * cell.y)
 		view.set_clickable(true)
+		view.visible = false  # 配り終わってから見せる
 		view.pressed.connect(_on_card_pressed.bind(i))
 		views.append(view)
 		removed.append(false)
 	_run()
 
 
+## 山札から場へ1枚ずつ並べる。
+func _deal() -> void:
+	set_message("カードを並べます")
+	_refresh_scores()
+	@warning_ignore("integer_division")
+	var rows := (cards.size() + columns - 1) / columns
+	show_deck(origin + Vector2(columns * cell.x, rows * cell.y) / 2.0, card_size)
+	var items: Array = []
+	for i in cards.size():
+		items.append({"card": cards[i], "to": views[i].position, "size": card_size})
+	await deal_cards(items, 0.022)
+	hide_deck()
+	for view in views:
+		view.visible = true
+
+
 func _run() -> void:
+	await _deal()
 	var remaining := cards.size()
 	while remaining > 0:
 		_refresh_scores()
@@ -72,11 +90,15 @@ func _run() -> void:
 		if cards[a].rank == cards[b].rank:
 			scores[turn] += 1
 			remaining -= 2
+			set_message("%s が %s のペアを取った！ もう1回" % [NAMES[turn], Card.RANK_NAMES[cards[a].rank - 1]])
+			# 取ったペアは、取った人の得点のところへ飛んでいく
+			var goal := score_labels[turn].position + score_labels[turn].size / 2.0 - card_size * 0.2
 			for i: int in [a, b]:
 				removed[i] = true
 				views[i].visible = false
 				cpu_memory.erase(i)
-			set_message("%s が %s のペアを取った！ もう1回" % [NAMES[turn], Card.RANK_NAMES[cards[a].rank - 1]])
+			fly_card(cards[a], views[a].position, goal, card_size, card_size * 0.4, true, 0.4)
+			await fly_card(cards[b], views[b].position, goal, card_size, card_size * 0.4, true, 0.4)
 			_refresh_scores()
 			await wait(0.6)
 		else:
@@ -147,7 +169,7 @@ func _refresh_scores() -> void:
 func _finish() -> void:
 	var lines := ["あなた  %d組" % scores[0], "CPU  %d組" % scores[1]]
 	if scores[0] > scores[1]:
-		show_result("あなたの勝ち！", lines)
+		show_result("あなたの勝ち！", lines, true)
 	elif scores[0] < scores[1]:
 		show_result("CPU の勝ち…", lines)
 	else:

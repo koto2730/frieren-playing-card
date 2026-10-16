@@ -19,6 +19,8 @@ var done := [false, false, false, false]
 var out_order: Array[int] = []
 var current := 0
 var pick_from := -1  # あなたが引ける相手。引けないときは-1
+var cards_visible := false  # 配り終わるまでは手札を出さない
+var card_views: Array = [[], [], [], []]
 
 var cpu_layers: Array[Control] = []
 var cpu_labels: Array[Label] = []
@@ -54,16 +56,37 @@ func _ready() -> void:
 	hand_layer = Control.new()
 	add_child(hand_layer)
 
-	var deck := Card.make_deck(1)
-	for i in deck.size():
-		hands[i % 4].append(deck[i])
 	_run()
 
 
-func _run() -> void:
-	set_message("カードを配りました。そろっているペアを捨てます")
+func _deal() -> void:
+	var deck := Card.make_deck(1)
+	for i in deck.size():
+		hands[i % 4].append(deck[i])
+	hands[0].sort_custom(func(a: Card, b: Card) -> bool: return a.order() < b.order())
+
+	# 山札から1枚ずつ順番に配る
+	set_message("カードを配ります")
 	_refresh()
-	await wait(1.4)
+	show_deck(Vector2(screen.x / 2.0, discard_y + 44 + DISCARD_CARD.y / 2.0), DISCARD_CARD)
+	var positions: Array = []
+	for p in 4:
+		positions.append(_card_positions(p))
+	var items: Array = []
+	for i in hands[0].size():
+		for p in 4:
+			if i < hands[p].size():
+				items.append({"card": hands[p][i], "to": positions[p][i], "size": _card_size(p), "face_up": p == 0})
+	await deal_cards(items, 0.03)
+	hide_deck()
+	cards_visible = true
+	_refresh()
+
+
+func _run() -> void:
+	await _deal()
+	set_message("そろっているペアを捨てます")
+	await wait(1.2)
 	for p in 4:
 		_discard_all_pairs(p)
 		if hands[p].is_empty():
@@ -85,12 +108,18 @@ func _run() -> void:
 			index = await human_picked
 			pick_from = -1
 		else:
+			set_message("%s が %s の手札から選んでいます…" % [NAMES[current], NAMES[src]])
 			_refresh()
-			await wait(0.15 if fast else 0.8)
-			index = randi() % hands[src].size()
+			index = await _cpu_think(src, fast)
 
+		# 引いたカードが相手の手札から自分の手札へ移動する
 		var card: Card = hands[src][index]
+		var from: Vector2 = _card_positions(src)[index]
 		hands[src].remove_at(index)
+		_refresh()
+		var landing := _card_positions(current, hands[current].size() + 1)
+		await fly_card(card, from, landing[landing.size() - 1], _card_size(src), _card_size(current),
+				current == 0 or src == 0, 0.12 if fast else 0.35)
 		hands[current].append(card)
 		var partner := _find_partner(current, card)
 		var text := _draw_text(current, src, card)
@@ -112,6 +141,120 @@ func _run() -> void:
 		current = _next_active(current)
 
 	_finish()
+
+
+## CPUがどれを引くか迷う演出。カードの上をカーソルが行ったり来たりしてから1枚に決める。
+func _cpu_think(src: int, fast: bool) -> int:
+	var count: int = hands[src].size()
+	var chosen := randi() % count
+	if fast:
+		await wait(0.15)
+		return chosen
+
+	var positions := _card_positions(src)
+	var views: Array = card_views[src]
+	var spot := Vector2(_visible_width(src) / 2.0, _card_size(src).y * 0.4)
+	# いくつか寄り道してから、最後に選ぶカードへ
+	var stops: Array[int] = []
+	if count > 1:
+		for i in randi_range(2, 4):
+			var candidate := randi() % count
+			if not stops.is_empty() and candidate == stops[stops.size() - 1]:
+				candidate = (candidate + 1) % count
+			stops.append(candidate)
+	stops.append(chosen)
+
+	var cursor := _make_cursor()
+	var mark: Label = cursor.get_node("Mark")
+	cursor.position = positions[stops[0]] + spot + Vector2(0, -50)
+	for n in stops.size():
+		var index := stops[n]
+		var target: Vector2 = positions[index] + spot
+		var move := cursor.create_tween()
+		move.tween_property(cursor, "position", target, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		await move.finished
+		_lift(views, index, true)
+		if n < stops.size() - 1:
+			# うーん、と小さく揺れて迷う
+			var hesitate := cursor.create_tween()
+			hesitate.tween_property(cursor, "position:x", target.x + 6, 0.08)
+			hesitate.tween_property(cursor, "position:x", target.x - 6, 0.12)
+			hesitate.tween_property(cursor, "position:x", target.x, 0.08)
+			hesitate.tween_interval(randf_range(0.1, 0.4))
+			await hesitate.finished
+			_lift(views, index, false)
+		else:
+			# これ！と押し込む
+			await wait(0.3)
+			mark.text = "！"
+			var press := cursor.create_tween()
+			press.tween_property(cursor, "position:y", target.y + 10, 0.08)
+			press.tween_property(cursor, "position:y", target.y, 0.1)
+			await press.finished
+			await wait(0.15)
+	cursor.queue_free()
+	return chosen
+
+
+func _make_cursor() -> Control:
+	var cursor := Control.new()
+	cursor.z_index = FX_Z + 5
+	cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(cursor)
+	# 下向きの矢印。先端が (0, 0)
+	var shape := PackedVector2Array([
+		Vector2(-8, -56), Vector2(8, -56), Vector2(8, -28), Vector2(20, -28),
+		Vector2(0, 0), Vector2(-20, -28), Vector2(-8, -28),
+	])
+	var arrow := Polygon2D.new()
+	arrow.polygon = shape
+	arrow.color = Color.YELLOW
+	cursor.add_child(arrow)
+	var edge := Line2D.new()
+	edge.points = shape
+	edge.closed = true
+	edge.width = 3.0
+	edge.default_color = Color(0.1, 0.1, 0.1)
+	cursor.add_child(edge)
+	var mark := UI.outline(UI.label(cursor, "？", Vector2(14, -74), Vector2(40, 40), 30), 10)
+	mark.name = "Mark"
+	mark.modulate = Color.YELLOW
+	return cursor
+
+
+func _lift(views: Array, index: int, up: bool) -> void:
+	if index >= views.size() or not is_instance_valid(views[index]):
+		return
+	var view: CardView = views[index]
+	var base_y: float = view.get_meta("base_y")
+	view.create_tween().tween_property(view, "position:y", base_y - 14.0 if up else base_y, 0.1)
+
+
+func _card_size(p: int) -> Vector2:
+	return hand_card if p == 0 else cpu_card
+
+
+## p の手札が count 枚のときの、各カードの位置（画面上の左上座標）。
+func _card_positions(p: int, count: int = -1) -> Array[Vector2]:
+	if count < 0:
+		count = hands[p].size()
+	if p == 0:
+		return UI.row_positions(count, hand_per_row, hand_card, hand_y)
+	var positions: Array[Vector2] = []
+	var step := _cpu_step(count)
+	var start_x := (cpu_panel_width - (step * (count - 1) + cpu_card.x)) / 2.0
+	for i in count:
+		positions.append(cpu_layers[p - 1].position + Vector2(start_x + i * step, 0))
+	return positions
+
+
+func _cpu_step(count: int) -> float:
+	return minf(cpu_card.x + 4, (cpu_panel_width - cpu_card.x) / maxf(count - 1, 1))
+
+
+## 重なって並んでいるとき、1枚あたり見えている幅。
+func _visible_width(p: int) -> float:
+	return hand_card.x if p == 0 else minf(cpu_card.x, _cpu_step(hands[p].size()))
 
 
 func _draw_text(p: int, src: int, card: Card) -> String:
@@ -207,13 +350,15 @@ func _refresh() -> void:
 			lbl.text = "%s%s  残り%d枚" % ["▶ " if p == current else "", NAMES[p], count]
 		lbl.modulate = Color.YELLOW if (pick_from == p or (p == current and not done[p])) else Color.WHITE
 
-		var step := minf(cpu_card.x + 4, (cpu_panel_width - cpu_card.x) / maxf(count - 1, 1))
-		var start_x := (cpu_panel_width - (step * (count - 1) + cpu_card.x)) / 2.0
-		for i in count:
+		card_views[p] = []
+		var cpu_positions := _card_positions(p)
+		for i in (count if cards_visible else 0):
 			var view := CardView.new()
 			layer.add_child(view)
 			view.setup(hands[p][i], cpu_card, false)
-			view.position = Vector2(start_x + i * step, 0)
+			view.position = cpu_positions[i] - layer.position
+			view.set_meta("base_y", view.position.y)
+			card_views[p].append(view)
 			view.set_clickable(pick_from == p)
 			view.set_dimmed(pick_from >= 0 and pick_from != p)
 			view.pressed.connect(_on_cpu_card_pressed.bind(p, i))
@@ -225,12 +370,15 @@ func _refresh() -> void:
 		hand_label.text = "あなた  あがり（%d位）" % (out_order.find(0) + 1)
 	else:
 		hand_label.text = "あなたの手札  %d枚" % hand.size()
-	var positions := UI.row_positions(hand.size(), hand_per_row, hand_card, hand_y)
-	for i in hand.size():
+	card_views[0] = []
+	var positions := _card_positions(0)
+	for i in (hand.size() if cards_visible else 0):
 		var view := CardView.new()
 		hand_layer.add_child(view)
 		view.setup(hand[i], hand_card)
 		view.position = positions[i]
+		view.set_meta("base_y", view.position.y)
+		card_views[0].append(view)
 
 
 func _finish() -> void:
@@ -245,4 +393,4 @@ func _finish() -> void:
 	if loser == 0:
 		show_result("ババが残った…", lines)
 	else:
-		show_result("あなたは %d位！" % (out_order.find(0) + 1), lines)
+		show_result("あなたは %d位！" % (out_order.find(0) + 1), lines, out_order.find(0) == 0)

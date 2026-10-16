@@ -17,18 +17,38 @@ const RULES := [
 		"scene": "res://scenes/memory.tscn",
 		"desc": "2枚めくって同じ数字なら\nもらえて、もう1回。\n多く取った方の勝ち。\n（あなた vs CPU）",
 	},
+	{
+		"name": "ブラックジャック",
+		"scene": "res://scenes/blackjack.tscn",
+		"desc": "合計を21に近づける。\nヒットで1枚引き、\nスタンドで勝負。\n（全5ラウンド）",
+	},
+	{
+		"name": "ダウト",
+		"scene": "res://scenes/doubt.tscn",
+		"desc": "A,2,3…の順に裏向きで\n出す。うそもOK。\nあやしいと思ったら\n「ダウト！」",
+	},
+	{
+		"name": "ポーカー",
+		"scene": "res://scenes/poker.tscn",
+		"desc": "5枚で役を作る。\n交換は1回だけ。\n全5ラウンドの合計点で\n勝負。",
+	},
 ]
 
-## パネル内の配置。よこ画面は横に3枚、たて画面は縦に積む。
+## パネルの並べ方とパネル内の配置。よこ画面は3列x2段、たて画面は2列x3段に並べる。
+## よこ画面はパネルが低いので、「あそぶ」は右下、CPUのつよさは左下に置く。
 const LAYOUT_LANDSCAPE := {
-	"panel": Vector2(360, 400), "gap": 40.0, "top": 160.0,
-	"name_y": 20.0, "name_h": 70.0, "name_font": 44,
-	"desc_y": 92.0, "desc_font": 20, "option_y": 226.0, "play_y": 320.0, "play_h": 60.0,
+	"columns": 3, "panel": Vector2(390, 222), "gap": 16.0, "top": 140.0,
+	"name_y": 8.0, "name_h": 46.0, "name_font": 30,
+	"desc_x": 14.0, "desc_y": 54.0, "desc_w": 250.0, "desc_h": 100.0, "desc_font": 16, "desc_align": "left",
+	"option_x": 14.0, "option_y": 178.0, "option_w": 230.0, "option_font": 16, "option_title_font": 14,
+	"play": Rect2(258, 158, 118, 52), "play_font": 24,
 }
 const LAYOUT_PORTRAIT := {
-	"panel": Vector2(640, 330), "gap": 15.0, "top": 120.0,
-	"name_y": 8.0, "name_h": 56.0, "name_font": 40,
-	"desc_y": 60.0, "desc_font": 20, "option_y": 190.0, "play_y": 266.0, "play_h": 54.0,
+	"columns": 2, "panel": Vector2(340, 330), "gap": 14.0, "top": 120.0,
+	"name_y": 14.0, "name_h": 50.0, "name_font": 32,
+	"desc_x": 12.0, "desc_y": 66.0, "desc_w": 316.0, "desc_h": 120.0, "desc_font": 19, "desc_align": "center",
+	"option_x": 12.0, "option_y": 214.0, "option_w": 316.0, "option_font": 18, "option_title_font": 16,
+	"play": Rect2(70, 264, 200, 54), "play_font": 26,
 }
 
 var layout: Dictionary
@@ -42,47 +62,68 @@ func _ready() -> void:
 	var panel_size: Vector2 = layout["panel"]
 	UI.background(self)
 	UI.card_backdrop(self, 0.55)
-	UI.outline(UI.label(self, "ルールをえらぶ", Vector2(0, 30 if p else 40), Vector2(screen.x, 80), 52), 12)
+	UI.outline(UI.label(self, "ルールをえらぶ", Vector2(0, 30 if p else 36), Vector2(screen.x, 80), 52), 12)
 
+	var columns: int = layout["columns"]
 	var gap: float = layout["gap"]
 	var top: float = layout["top"]
-	var total_width := RULES.size() * panel_size.x + (RULES.size() - 1) * gap
+	var start_x := (screen.x - (columns * panel_size.x + (columns - 1) * gap)) / 2.0
 	for i in RULES.size():
 		var rule: Dictionary = RULES[i]
-		var pos := Vector2((screen.x - total_width) / 2.0 + i * (panel_size.x + gap), top)
-		if p:
-			pos = Vector2((screen.x - panel_size.x) / 2.0, top + i * (panel_size.y + gap))
+		@warning_ignore("integer_division")
+		var pos := Vector2(start_x + (i % columns) * (panel_size.x + gap), top + (i / columns) * (panel_size.y + gap))
 		var panel := UI.panel(self, pos, panel_size)
 		UI.label(panel, rule["name"], Vector2(0, layout["name_y"]), Vector2(panel_size.x, layout["name_h"]),
 				layout["name_font"])
-		UI.label(panel, rule["desc"], Vector2(20, layout["desc_y"]), Vector2(panel_size.x - 40, 120), layout["desc_font"])
-		if rule["scene"] == "res://scenes/memory.tscn":
-			_build_memory_cpu_selector(panel)
-		UI.button(panel, "あそぶ", Vector2((panel_size.x - 200) / 2.0, layout["play_y"]),
-				Vector2(200, layout["play_h"]), 28, _start.bind(rule["scene"]))
+		var desc := UI.label(panel, rule["desc"], Vector2(layout["desc_x"], layout["desc_y"]),
+				Vector2(layout["desc_w"], layout["desc_h"]), layout["desc_font"],
+				HORIZONTAL_ALIGNMENT_LEFT if layout["desc_align"] == "left" else HORIZONTAL_ALIGNMENT_CENTER)
+		desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		match rule["scene"]:
+			"res://scenes/memory.tscn":
+				_build_selector(panel, "CPUのつよさ", Settings.MEMORY_CPU_LEVELS, Settings.memory_cpu_level,
+						_set_memory_cpu)
+			"res://scenes/poker.tscn":
+				_build_selector(panel, "ジョーカー", Settings.POKER_JOKER_OPTIONS, Settings.poker_joker_option,
+						_set_poker_jokers)
+		var play: Rect2 = layout["play"]
+		UI.button(panel, "あそぶ", play.position, play.size, layout["play_font"], _start.bind(rule["scene"]))
 
-	UI.button(self, "タイトルへ", Vector2(screen.x / 2.0 - 100, 1170 if p else 620), Vector2(200, 50), 22,
+	UI.button(self, "タイトルへ", Vector2(screen.x / 2.0 - 100, 1170 if p else 626), Vector2(200, 50), 22,
 			_back_to_title)
 
 
-func _build_memory_cpu_selector(panel: Panel) -> void:
+## パネルの下に、いくつかの中から1つを選ぶボタンを並べる。
+func _build_selector(panel: Panel, title: String, options: Array, current: int, on_select: Callable) -> void:
+	var option_x: float = layout["option_x"]
 	var option_y: float = layout["option_y"]
-	UI.label(panel, "CPUのつよさ", Vector2(0, option_y), Vector2(panel.size.x, 28), 18)
-	var levels := Settings.MEMORY_CPU_LEVELS
-	var button_size := Vector2(100, 40)
-	var start_x := (panel.size.x - (levels.size() * (button_size.x + 10) - 10)) / 2.0
+	var option_w: float = layout["option_w"]
+	var title_label := UI.label(panel, title, Vector2(option_x, option_y - 22), Vector2(option_w, 20),
+			layout["option_title_font"])
+	title_label.modulate = Color(0.85, 0.85, 0.85)
+	var spacing := 4.0
+	var button_size := Vector2(minf(100, (option_w - spacing * (options.size() - 1)) / options.size()), 38)
+	var start_x := option_x + (option_w - (options.size() * (button_size.x + spacing) - spacing)) / 2.0
 	var buttons: Array[Button] = []
-	for i in levels.size():
-		buttons.append(UI.button(panel, levels[i]["name"], Vector2(start_x + i * (button_size.x + 10), option_y + 30),
-				button_size, 20, _select_memory_cpu.bind(i, buttons)))
-	_select_memory_cpu(Settings.memory_cpu_level, buttons)
+	for i in options.size():
+		buttons.append(UI.button(panel, options[i]["name"], Vector2(start_x + i * (button_size.x + spacing), option_y),
+				button_size, layout["option_font"], _on_selector.bind(i, buttons, options, on_select)))
+	_on_selector(current, buttons, options, on_select)
 
 
-func _select_memory_cpu(level: int, buttons: Array[Button]) -> void:
-	Settings.memory_cpu_level = level
+func _on_selector(index: int, buttons: Array[Button], options: Array, on_select: Callable) -> void:
+	on_select.call(index)
 	for i in buttons.size():
-		buttons[i].modulate = Color.YELLOW if i == level else Color(0.7, 0.7, 0.7)
-		buttons[i].text = ("● " if i == level else "") + Settings.MEMORY_CPU_LEVELS[i]["name"]
+		buttons[i].modulate = Color.YELLOW if i == index else Color(0.7, 0.7, 0.7)
+		buttons[i].text = ("● " if i == index else "") + options[i]["name"]
+
+
+func _set_memory_cpu(index: int) -> void:
+	Settings.memory_cpu_level = index
+
+
+func _set_poker_jokers(index: int) -> void:
+	Settings.poker_joker_option = index
 
 
 func _start(scene_path: String) -> void:
