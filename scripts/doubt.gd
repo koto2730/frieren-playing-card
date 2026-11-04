@@ -229,7 +229,7 @@ func _doubt_phase(player: int, count: int) -> int:
 
 func _resolve_doubt(caller: int, player: int, cards: Array) -> void:
 	set_message("%s「ダウト！」" % NAMES[caller])
-	await _pop_doubt_text()
+	await pop_text("ダウト！", pile_center - Vector2(0, 105))
 	# 出したカードを表にして見せる。そのカードは場の束からは外して描く
 	revealing = cards.size()
 	_refresh()
@@ -267,20 +267,6 @@ func _resolve_doubt(caller: int, player: int, cards: Array) -> void:
 		_sort_hand()
 	_refresh()
 	await wait(0.4)
-
-
-func _pop_doubt_text() -> void:
-	var text := UI.outline(UI.label(self, "ダウト！", pile_center - Vector2(200, 150), Vector2(400, 90), 64), 14)
-	text.modulate = Color("ffd84a")
-	text.z_index = FX_Z + 2
-	text.pivot_offset = text.size / 2.0
-	text.scale = Vector2(0.4, 0.4)
-	var tween := text.create_tween()
-	tween.tween_property(text, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(0.5)
-	tween.tween_property(text, "modulate:a", 0.0, 0.25)
-	tween.tween_callback(text.queue_free)
-	await tween.finished
 
 
 ## 手札から場へ、裏向きでカードを飛ばす。

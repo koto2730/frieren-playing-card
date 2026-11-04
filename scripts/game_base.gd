@@ -131,6 +131,21 @@ func _make_flyer(card: Card, pos: Vector2, from_size: Vector2, to_size: Vector2,
 	return view
 
 
+## 「8切り！」「ダウト！」のような大きな文字を、center にぽんと出して消す。
+func pop_text(text: String, center: Vector2, color: Color = Color("ffd84a")) -> void:
+	var lbl := UI.outline(UI.label(self, text, center - Vector2(240, 45), Vector2(480, 90), 64), 14)
+	lbl.modulate = color
+	lbl.z_index = FX_Z + 2
+	lbl.pivot_offset = lbl.size / 2.0
+	lbl.scale = Vector2(0.4, 0.4)
+	var tween := lbl.create_tween()
+	tween.tween_property(lbl, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.5)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.25)
+	tween.tween_callback(lbl.queue_free)
+	await tween.finished
+
+
 ## 花吹雪を降らせる。burst が true なら一度だけぱっと散らす。
 func celebrate(parent: Node = null, burst: bool = false) -> void:
 	var petals := CPUParticles2D.new()

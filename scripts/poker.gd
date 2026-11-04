@@ -48,7 +48,7 @@ var main_button: Button
 
 func _ready() -> void:
 	setup_base("ポーカー")
-	joker_count = Settings.POKER_JOKER_OPTIONS[Settings.poker_joker_option]["count"]
+	joker_count = Settings.get_value("poker_jokers")
 	var button_rect := Rect2(screen.x / 2.0 - 170, 590, 340, 64)
 	var hand_label_y := 318.0
 	if portrait:

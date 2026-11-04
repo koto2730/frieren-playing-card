@@ -13,6 +13,7 @@ const BACKDROP_FERN: Texture2D = preload("res://assets/images/card_fern.jpg")
 
 const SCENE_TITLE := "res://scenes/title.tscn"
 const SCENE_RULE_SELECT := "res://scenes/rule_select.tscn"
+const SCENE_GAME_OPTIONS := "res://scenes/game_options.tscn"
 
 
 static func screen() -> Vector2:

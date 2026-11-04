@@ -25,9 +25,8 @@ var score_labels: Array[Label] = []
 
 func _ready() -> void:
 	setup_base("神経衰弱")
-	var level: Dictionary = Settings.MEMORY_CPU_LEVELS[Settings.memory_cpu_level]
-	cpu_remember_rate = level["rate"]
-	UI.label(self, "CPU: %s" % level["name"], Vector2(screen.x - 380, 6), Vector2(220, 44), 20,
+	cpu_remember_rate = Settings.get_value("memory_cpu_rate")
+	UI.label(self, "CPU: %s" % Settings.choice_name("memory_cpu_rate"), Vector2(screen.x - 380, 6), Vector2(220, 44), 20,
 			HORIZONTAL_ALIGNMENT_RIGHT)
 	if portrait:
 		columns = 7
